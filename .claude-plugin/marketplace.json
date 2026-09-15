@@ -1,0 +1,18 @@
+{
+  "name": "claude-workflows",
+  "owner": {
+    "name": "YashShelar007",
+    "url": "https://github.com/YashShelar007"
+  },
+  "metadata": {
+    "description": "Claude Code plugins for engineering process: blind multi-model review with adjudication.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "blind-review",
+      "source": "./plugins/blind-review",
+      "description": "Two reviewers from different model families read a PR blind and in parallel; a third family adjudicates only where they disagree. Findings without evidence are dropped."
+    }
+  ]
+}

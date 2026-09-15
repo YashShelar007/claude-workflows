@@ -1,0 +1,5 @@
+{
+  "a": { "model": "fixture/reviewer-alpha", "family": "alpha" },
+  "b": { "model": "fixture/reviewer-alpha-large", "family": "alpha" },
+  "adjudicator": { "model": "fixture/adjudicator-gamma", "family": "gamma" }
+}

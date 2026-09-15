@@ -1,0 +1,13 @@
+{
+  "id": "gen-fixture-agreed-b",
+  "model": "fixture/reviewer-beta",
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "Here are my findings.\n\n```json\n{\"findings\":[{\"path\":\"src/cache.js\",\"line\":13,\"severity\":\"high\",\"claim\":\"Unit mismatch in the expiry comparison: Date.now() minus entry.at is milliseconds while this.ttl is seconds, so a ttl of 60 expires the entry after 60ms.\",\"evidence\":\"$ node -e \\\"import('./src/cache.js').then(({MintCache})=>{const c=new MintCache({ttl:60});c.set('a',1);setTimeout(()=>console.log(c.get('a')),100)})\\\"\\nundefined\"},{\"path\":\"src/cache.js\",\"line\":19,\"severity\":\"low\",\"claim\":\"Consider renaming entry to record for clarity.\",\"evidence\":\"\"},{\"path\":\"src/cache.js\",\"line\":25,\"severity\":\"medium\",\"claim\":\"Calling Date.now() on every set may be slow under load.\",\"evidence\":\"general knowledge\"}]}\n```"
+      }
+    }
+  ],
+  "usage": { "prompt_tokens": 803, "completion_tokens": 188 }
+}

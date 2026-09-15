@@ -1,0 +1,57 @@
+diff --git a/src/cache.js b/src/cache.js
+index 3b1c9e2..7d4a0f1 100644
+--- a/src/cache.js
++++ b/src/cache.js
+@@ -1,25 +1,31 @@
+ // MintCache: a small LRU cache with optional time-to-live.
+ export class MintCache {
+-  constructor({ max = 100 } = {}) {
++  constructor({ max = 100, ttl = 0 } = {}) {
+     this.max = max;
++    // ttl is in seconds; 0 disables expiry.
++    this.ttl = ttl;
+     this.map = new Map();
+   }
+
+   get(key) {
+-    if (!this.map.has(key)) return undefined;
+-    const value = this.map.get(key);
++    const entry = this.map.get(key);
++    if (entry === undefined) return undefined;
++    if (this.ttl > 0 && Date.now() - entry.at > this.ttl) {
++      this.map.delete(key);
++      return undefined;
++    }
+     // Re-insert to mark as most recently used.
+     this.map.delete(key);
+-    this.map.set(key, value);
+-    return value;
++    this.map.set(key, entry);
++    return entry.value;
+   }
+
+   set(key, value) {
+     if (this.map.has(key)) this.map.delete(key);
+-    this.map.set(key, value);
++    this.map.set(key, { value, at: Date.now() });
+     if (this.map.size > this.max) {
+       const oldest = this.map.keys().next().value;
+       this.map.delete(oldest);
+     }
+   }
+ }
+diff --git a/test/cache.test.mjs b/test/cache.test.mjs
+new file mode 100644
+index 0000000..a1b2c3d
+--- /dev/null
++++ b/test/cache.test.mjs
+@@ -0,0 +1,9 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { MintCache } from '../src/cache.js';
++
++test('get returns the value before ttl elapses', () => {
++  const cache = new MintCache({ ttl: 60 });
++  cache.set('a', 1);
++  assert.equal(cache.get('a'), 1);
++});

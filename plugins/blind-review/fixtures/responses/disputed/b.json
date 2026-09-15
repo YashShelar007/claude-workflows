@@ -1,0 +1,13 @@
+{
+  "id": "gen-fixture-disputed-b",
+  "model": "fixture/reviewer-beta",
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "{\"findings\":[{\"path\":\"src/cache.js\",\"line\":14,\"severity\":\"high\",\"claim\":\"Expiry compares a millisecond elapsed time against a ttl given in seconds; a ttl of 60 behaves like 60 milliseconds.\",\"evidence\":\"src/cache.js:13\"},{\"path\":\"test/cache.test.mjs\",\"line\":5,\"severity\":\"low\",\"claim\":\"No test asserts expiry. The only ttl test reads the value immediately after set, so the unit mismatch passes it.\",\"evidence\":\"test: get returns the value before ttl elapses\"}]}"
+      }
+    }
+  ],
+  "usage": { "prompt_tokens": 803, "completion_tokens": 119 }
+}
