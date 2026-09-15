@@ -52,6 +52,15 @@ failed **or could not be checked**, `2` when the origin could not be reached or
 a check threw. `2` is never a pass, and neither is `1`: an item the script could
 not read is an item nobody has checked.
 
+Expect that to bite. A site built with Tailwind, or with any design-token
+system, will hand back `could-not-check` for colour contrast — every colour
+arrives through a variable — and exit `1` on that alone with nothing else wrong.
+That is the honest result, not a bug to route around. The alternative is a
+script that resolves `var(--ink)` to a guess and prints a contrast ratio it
+invented, and a ratio nobody measured is worse than no ratio at all. Read the
+count, check those colours in a browser, and treat the exit code as "not
+finished" rather than "broken".
+
 ## The fourteen mechanical items
 
 | Item | Passes when |
@@ -64,7 +73,7 @@ not read is an item nobody has checked.
 | Mobile friendly | Every crawled page carries a `<meta name="viewport">`. |
 | Custom 404 page | A path that does not exist returns 404 — not 200 — and the body carries the site title or a link back into the site rather than the server's own default. |
 | No broken links | Every same-origin `<a href>` found in the crawl returns under 400. Failures name the page that linked them. |
-| Alt text on images | Every `<img>` has a non-empty `alt`, or `alt=""` together with `role="presentation"`. |
+| Alt text on images | Every `<img>` has an `alt` attribute. `alt=""` passes: that is the correct marking for a decorative image, and `role="presentation"` adds nothing to it. The count of decorative images is reported for a human to weigh. |
 | Image compression | No image exceeds the per-image byte threshold. The byte count is printed for every image either way. |
 | Page load speed | Time to first byte and landing-page bytes are both under their thresholds. Both numbers are printed either way. |
 | Secrets off the frontend | No credential-shaped string in any same-origin script or inline script. Findings name the file, the line, and the first four characters — never the value. |
@@ -94,6 +103,10 @@ answered stays unanswered.
 - **A colour that comes from a CSS variable, a class applied at runtime, or an
   inherited background.** The script reports the count and refuses to guess.
   Resolving these properly needs a rendering engine; this has none.
+- **Whether an image was rightly called decorative.** `alt=""` is a claim the
+  author makes, and the script counts those claims rather than auditing them.
+  Twenty-three decorative images is a row of technology logos or a gallery
+  nobody can see; only a person can say which.
 - **Whether a page *looks* right on a phone.** It checks for a viewport tag,
   which is necessary and nowhere near sufficient.
 - **Real-world load time.** Time to first byte and transferred bytes are two
@@ -112,9 +125,9 @@ answered stays unanswered.
 check. `fixtures/broken-site/` is Clover Lane, the same shop with eleven checks
 broken on purpose: no robots or sitemap, a four-character title, no description,
 no `og:image`, no `twitter:card`, no favicon, a page with no viewport, a soft 404
-that answers 200 for everything, a dead internal link, an image with no `alt`, an
-image over the weight threshold, a 2.49:1 contrast pair, an `http://` stylesheet
-and a placeholder key in the served JavaScript.
+that answers 200 for everything, a dead internal link, an image with no `alt`
+attribute at all, an image over the weight threshold, a 2.49:1 contrast pair, an
+`http://` stylesheet and a placeholder key in the served JavaScript.
 
 Two images are generated rather than committed — one has to be 1200×630 and the
 other has to weigh more than the threshold it exists to breach, and a third of a
