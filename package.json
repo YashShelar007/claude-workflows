@@ -1,0 +1,13 @@
+{
+  "name": "claude-workflows",
+  "private": true,
+  "type": "module",
+  "description": "Claude Code plugins for engineering process: blind multi-model review with adjudication.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"plugins/**/*.test.mjs\""
+  }
+}
