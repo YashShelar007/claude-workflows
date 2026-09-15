@@ -1,0 +1,13 @@
+{
+  "id": "gen-fixture-clean-b",
+  "model": "fixture/reviewer-beta",
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "```json\n{\"findings\": []}\n```"
+      }
+    }
+  ],
+  "usage": { "prompt_tokens": 803, "completion_tokens": 9 }
+}

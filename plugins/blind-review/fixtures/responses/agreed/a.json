@@ -1,0 +1,13 @@
+{
+  "id": "gen-fixture-agreed-a",
+  "model": "fixture/reviewer-alpha",
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "{\"findings\":[{\"path\":\"src/cache.js\",\"line\":13,\"severity\":\"high\",\"claim\":\"ttl is documented in seconds but the expiry check compares it to a millisecond difference, so entries expire after ttl milliseconds, a thousand times too early\",\"evidence\":\"src/cache.js:13\"}]}"
+      }
+    }
+  ],
+  "usage": { "prompt_tokens": 812, "completion_tokens": 71 }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "gen-fixture-disputed-a",
+  "model": "fixture/reviewer-alpha",
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "{\"findings\":[{\"path\":\"src/cache.js\",\"line\":13,\"severity\":\"high\",\"claim\":\"ttl is documented in seconds but the expiry check compares it to a millisecond difference, so entries expire after ttl milliseconds, a thousand times too early\",\"evidence\":\"src/cache.js:13\"},{\"path\":\"src/cache.js\",\"line\":19,\"severity\":\"medium\",\"claim\":\"get deletes the key and re-inserts it on every hit, which doubles the Map work per read and drops the entry if the re-insert does not happen\",\"evidence\":\"src/cache.js:18\"}]}"
+      }
+    }
+  ],
+  "usage": { "prompt_tokens": 812, "completion_tokens": 131 }
+}

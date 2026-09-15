@@ -1,0 +1,13 @@
+{
+  "id": "gen-fixture-disputed-adjudicator",
+  "model": "fixture/adjudicator-gamma",
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "{\"verdicts\":[{\"id\":\"d1\",\"verdict\":\"dismissed\",\"severity\":\"medium\",\"reason\":\"Delete-then-set is the standard Map recency bump the brief asks for; both calls are synchronous and neither can throw here, so no entry is lost.\"},{\"id\":\"d2\",\"verdict\":\"upheld\",\"severity\":\"low\",\"reason\":\"The brief's done condition requires a test that observes undefined after the ttl. The diff has none, and that is exactly the gap the seconds/milliseconds mismatch hid.\"}]}"
+      }
+    }
+  ],
+  "usage": { "prompt_tokens": 1104, "completion_tokens": 112 }
+}
