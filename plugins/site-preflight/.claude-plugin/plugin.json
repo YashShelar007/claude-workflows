@@ -1,0 +1,12 @@
+{
+  "name": "site-preflight",
+  "description": "Runs the mechanical half of a twenty-item launch checklist against a live site and reports the measured number behind every verdict. The six items no script can judge are asked of a human, one at a time. Unreadable is could-not-check, never a pass.",
+  "version": "0.1.0",
+  "author": {
+    "name": "YashShelar007",
+    "url": "https://github.com/YashShelar007"
+  },
+  "homepage": "https://github.com/YashShelar007/claude-workflows",
+  "license": "MIT",
+  "keywords": ["launch-checklist", "accessibility", "seo", "web-performance", "secret-scanning"]
+}
