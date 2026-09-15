@@ -13,6 +13,11 @@
       "name": "blind-review",
       "source": "./plugins/blind-review",
       "description": "Two reviewers from different model families read a PR blind and in parallel; a third family adjudicates only where they disagree. Findings without evidence are dropped."
+    },
+    {
+      "name": "site-preflight",
+      "source": "./plugins/site-preflight",
+      "description": "Runs the mechanical half of a twenty-item launch checklist against a live site and reports the measured number behind every verdict. The six items no script can judge are asked of a human, one at a time. Unreadable is could-not-check, never a pass."
     }
   ]
 }
