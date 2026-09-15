@@ -1,0 +1,18 @@
+{
+  "_comment": "Copy to models.json. Three roles, three different families; the script refuses two from one family. Ids are OpenRouter ids, checked against https://openrouter.ai/api/v1/models on the date given. They go stale; re-check before trusting.",
+  "a": {
+    "model": "deepseek/deepseek-v4-pro",
+    "family": "deepseek",
+    "why": "2026-09-15: strong on code, $1.60/$3.20 per M tokens on OpenRouter, 1M context so a whole PR diff fits."
+  },
+  "b": {
+    "model": "z-ai/glm-5.3",
+    "family": "glm",
+    "why": "2026-09-15: a different lab and training lineage from DeepSeek, $1.40/$4.40 per M tokens, 1.3M context."
+  },
+  "adjudicator": {
+    "model": "google/gemini-3.8-flash",
+    "family": "gemini",
+    "why": "2026-09-15: third lineage, $0.75/$3.75 per M tokens; it only runs on disputed findings so a mid-price model is fine here."
+  }
+}

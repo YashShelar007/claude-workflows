@@ -1,0 +1,12 @@
+{
+  "name": "blind-review",
+  "description": "Two reviewers from different model families read a PR blind and in parallel; a third family adjudicates only where they disagree. Findings without evidence are dropped.",
+  "version": "0.1.0",
+  "author": {
+    "name": "YashShelar007",
+    "url": "https://github.com/YashShelar007"
+  },
+  "homepage": "https://github.com/YashShelar007/claude-workflows",
+  "license": "MIT",
+  "keywords": ["code-review", "openrouter", "multi-model", "adjudication"]
+}
