@@ -1,11 +1,17 @@
 # claude-workflows
 
-Claude Code plugins for engineering process. One plugin so far:
+Claude Code plugins for engineering process. Two so far:
 
 **`blind-review`**: two reviewers from different model families read a PR's
 diff and brief and nothing else, in parallel, with byte-identical prompts. Where
 they agree, the finding is recorded. Where they disagree, a third model family
 adjudicates. Findings without evidence are dropped before anyone reads them.
+
+**`site-preflight`**: the mechanical half of a twenty-item launch checklist,
+asked of a live site and answered with the number it was judged on — the status
+code, the byte count, the contrast ratio. The six items no script can settle are
+put to a human, one at a time. A value it cannot read is `could-not-check`,
+which is not a pass.
 
 ## Why
 
