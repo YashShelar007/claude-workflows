@@ -222,20 +222,40 @@ test('check 8, internal links: a dead link fails and names the page that linked 
   assert.match(evidenceFor(r, 'broken-links'), /\/menu\/seasonal\.html returned 404; linked from http:\/\/127\.0\.0\.1:\d+\//);
 });
 
-test('check 9a, alt text: a missing alt fails; an empty alt with role=presentation passes', () => {
+test('check 9a, alt text: only a missing alt attribute fails; alt="" is decorative and counted', () => {
   const broken = runFixture(BROKEN);
   assert.equal(statuses(broken)['alt-text'], 'fail');
   assert.match(evidenceFor(broken, 'alt-text'), /sketch\.svg"> has no alt attribute/);
+  assert.match(evidenceFor(broken, 'alt-text'), /2 image\(s\): 1 described, 0 marked decorative with alt="", 1 with no alt attribute/);
 
-  const passing = evidenceFor(runFixture(PASS), 'alt-text');
-  assert.match(passing, /leaf\.svg">: alt "", role="presentation"/);
+  // alt="" alone is the spec-correct marking for a decorative image.
+  // role="presentation" adds nothing an assistive technology acts on, so
+  // requiring it would fail markup that is already right.
+  const r = runFixture(PASS);
+  assert.equal(statuses(r)['alt-text'], 'pass');
+  const evidence = evidenceFor(r, 'alt-text');
+  assert.match(evidence, /leaf\.svg">: alt ""/);
+  assert.ok(!/role="presentation"/.test(evidence), 'the passing fixture no longer needs the redundant role');
+  assert.match(evidence, /2 image\(s\): 1 described, 1 marked decorative with alt="", 0 with no alt attribute/);
+  assert.match(evidence, /whether that is right is a judgement no script makes/);
 
-  const bare = tempSite(PASS, {});
-  const index = readFileSync(path.join(bare, 'index.html'), 'utf8').replace(' alt="" role="presentation"', ' alt=""');
-  writeFileSync(path.join(bare, 'index.html'), index);
-  const r = runFixture(bare);
-  assert.equal(statuses(r)['alt-text'], 'fail', 'alt="" without role="presentation" is not decorative, it is missing');
-  assert.match(evidenceFor(r, 'alt-text'), /an empty alt without role="presentation"/);
+  // The count is the point: it is what lets a reader notice that a page has
+  // declared far more images decorative than a page plausibly should.
+  const many = tempSite(PASS, {});
+  const index = readFileSync(path.join(many, 'index.html'), 'utf8')
+    .replace('<img src="/assets/leaf.svg" alt=""', '<img src="/assets/leaf.svg" alt="" data-n="1"><img src="/assets/leaf.svg" alt="" data-n="2"><img src="/assets/leaf.svg" alt=""');
+  writeFileSync(path.join(many, 'index.html'), index);
+  const counted = runFixture(many);
+  assert.equal(statuses(counted)['alt-text'], 'pass', 'three decorative images is still not a failure');
+  assert.match(evidenceFor(counted, 'alt-text'), /4 image\(s\): 1 described, 3 marked decorative/);
+
+  // An alt attribute with nothing but whitespace is decorative, not described.
+  const blank = tempSite(PASS, {});
+  writeFileSync(
+    path.join(blank, 'index.html'),
+    readFileSync(path.join(blank, 'index.html'), 'utf8').replace('alt="A scored round sourdough loaf, cooling on a rack"', 'alt="   "'),
+  );
+  assert.match(evidenceFor(runFixture(blank), 'alt-text'), /0 described, 2 marked decorative/);
 });
 
 test('check 9b, image weight: an image over the threshold fails with its byte count', () => {

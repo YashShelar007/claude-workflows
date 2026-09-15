@@ -888,17 +888,34 @@ export async function runChecks(origin, options) {
       record('alt-text', 'na', [`no <img> elements on the ${pages.length} page(s) crawled`]);
       record('image-compression', 'na', [`no <img> elements on the ${pages.length} page(s) crawled`]);
     } else {
+      // `alt=""` is the marking for a decorative image, and it is sufficient on
+      // its own: `role="presentation"` adds nothing an assistive technology
+      // acts on. So the only failure here is an <img> with no `alt` attribute
+      // at all, which leaves a screen reader to read out the file name.
+      //
+      // Whether an image was *rightly* called decorative is not a thing bytes
+      // can answer, so the count is reported for a human to weigh: twenty-three
+      // decorative images on a page is either a row of technology logos or a
+      // gallery nobody can see, and only a person can say which.
       const altProblems = [];
       const altEvidence = [];
+      let described = 0;
+      let decorative = 0;
       for (const img of images) {
-        const decorative = img.alt === '' && String(img.role ?? '').toLowerCase() === 'presentation';
-        const described = typeof img.alt === 'string' && img.alt.trim().length > 0;
-        altEvidence.push(`${img.page} <img src="${img.src}">: alt ${img.alt === null ? 'absent' : `"${img.alt}"`}${img.role ? `, role="${img.role}"` : ''}`);
-        if (!described && !decorative) {
-          altProblems.push(`${img.page} <img src="${img.src}"> has ${img.alt === null ? 'no alt attribute' : 'an empty alt without role="presentation"'}`);
-        }
+        const hasAlt = typeof img.alt === 'string';
+        const hasText = hasAlt && img.alt.trim().length > 0;
+        if (hasText) described += 1;
+        else if (hasAlt) decorative += 1;
+        else altProblems.push(`${img.page} <img src="${img.src}"> has no alt attribute`);
+        altEvidence.push(`${img.page} <img src="${img.src}">: alt ${hasAlt ? `"${img.alt}"` : 'absent'}${img.role ? `, role="${img.role}"` : ''}`);
       }
-      record('alt-text', altProblems.length ? 'fail' : 'pass', altProblems.length ? [...altProblems, ...altEvidence] : altEvidence);
+      const altSummary = [
+        `${images.length} image(s): ${described} described, ${decorative} marked decorative with alt="", ${altProblems.length} with no alt attribute`,
+      ];
+      if (decorative > 0) {
+        altSummary.push(`${decorative} image(s) declare themselves decorative; whether that is right is a judgement no script makes — read the list and decide`);
+      }
+      record('alt-text', altProblems.length ? 'fail' : 'pass', [...altSummary, ...altProblems, ...altEvidence]);
 
       const weightProblems = [];
       const weightEvidence = [];
