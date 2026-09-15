@@ -1,0 +1,25 @@
+/* .notice is the planted contrast failure: mid grey on white, a pairing that
+   looks fine on the designer's monitor and lands near 2.5:1. .page declares a
+   text colour and leaves the background to inheritance, which is the other
+   thing this fixture is here to demonstrate: unresolvable, never guessed. */
+
+.bar {
+  color: #f6f2e7;
+  background-color: #2f3a24;
+}
+
+.brand {
+  color: #ffffff;
+  background-color: #2f3a24;
+  text-decoration: none;
+}
+
+.page {
+  color: #1c1c1c;
+  line-height: 1.5;
+}
+
+.notice {
+  color: #a4a4a4;
+  background-color: #ffffff;
+}

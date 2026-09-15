@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<!-- Clover Lane Bakery, the same made-up shop with every check broken on
+     purpose. Each defect below is one row of the checklist going red:
+     title too short, no description, no og:image, no twitter:card, no favicon
+     link, an image with no alt, an image over the weight threshold, a dead
+     internal link, a low-contrast rule, an http:// stylesheet, and a key in
+     the served JavaScript. robots.txt and sitemap.xml are simply absent, and
+     200.html turns every unknown page path into a soft 404. -->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home</title>
+<meta property="og:title" content="Clover Lane Bakery">
+<meta property="og:description" content="Bread and pastry on Clover Lane.">
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="http://static.clover-lane.example/print.css" media="print">
+</head>
+<body>
+<header class="bar">
+<a class="brand" href="/">Clover Lane</a>
+<nav class="bar"><a href="/menu.html">Menu</a> <a href="/menu/seasonal.html">Seasonal</a></nav>
+</header>
+<main class="page">
+<h1 class="page">Clover Lane Bakery</h1>
+<p class="page">Bread and pastry, six days a week.</p>
+<img src="/out/hero.png" alt="The shop front on Clover Lane at opening time" width="340" height="340">
+<img src="/assets/sketch.svg" width="180" height="120">
+<p class="notice">Deliveries pause in August.</p>
+</main>
+<script src="/assets/app.js"></script>
+</body>
+</html>

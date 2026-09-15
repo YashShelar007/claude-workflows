@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Maple and Rye">
+  <rect width="32" height="32" rx="6" fill="#3d2a1f"/>
+  <path d="M8 21c0-5 3.6-9 8-9s8 4 8 9z" fill="#f4ece0"/>
+  <path d="M12 17h8" stroke="#3d2a1f" stroke-width="1.5"/>
+</svg>
