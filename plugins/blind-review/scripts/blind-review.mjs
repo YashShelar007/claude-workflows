@@ -52,9 +52,18 @@ export function buildReviewerUserMessage(brief, diff) {
   return `# Brief\n\n${brief.trim()}\n\n# Diff\n\n\`\`\`diff\n${diff.trimEnd()}\n\`\`\`\n`;
 }
 
+// Reasoning effort per role. A config entry may set its own `reasoning` (an
+// OpenRouter reasoning object, e.g. {"effort":"low"} or {"max_tokens":2000});
+// otherwise it gets the role's default. Reviewers default to the same value
+// so A and B stay byte-identical except for the model field.
+export function resolveReasoning(roleConfig, fallbackEffort) {
+  if (roleConfig && Object.prototype.hasOwnProperty.call(roleConfig, 'reasoning')) return roleConfig.reasoning;
+  return { effort: fallbackEffort };
+}
+
 // One function builds every reviewer request so the two bodies can only differ
 // in the model field. The test asserts this at the byte level.
-export function buildReviewerRequest(model, brief, diff) {
+export function buildReviewerRequest(model, brief, diff, reasoning = { effort: 'low' }) {
   return JSON.stringify({
     model,
     messages: [
@@ -62,10 +71,11 @@ export function buildReviewerRequest(model, brief, diff) {
       { role: 'user', content: buildReviewerUserMessage(brief, diff) },
     ],
     temperature: 0,
+    ...(reasoning ? { reasoning } : {}),
   });
 }
 
-export function buildAdjudicatorRequest(model, brief, diff, disputed) {
+export function buildAdjudicatorRequest(model, brief, diff, disputed, reasoning = { effort: 'medium' }) {
   const lines = [];
   lines.push('# Brief', '', brief.trim(), '', '# Diff', '', '```diff', diff.trimEnd(), '```', '', '# Disputed findings', '');
   for (const d of disputed) {
@@ -87,6 +97,7 @@ export function buildAdjudicatorRequest(model, brief, diff, disputed) {
       { role: 'user', content: lines.join('\n') },
     ],
     temperature: 0,
+    ...(reasoning ? { reasoning } : {}),
   });
 }
 
@@ -296,7 +307,19 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export function makeTransport({ dryRun, responsesDir, apiKey }) {
+// A per-call timeout that aborts the request and fails fast rather than
+// hanging silently (run 2 sat for 35 minutes with an empty log). A manual
+// AbortController + race, not just `AbortSignal.timeout` on the fetch call,
+// so it still fires against a test double that ignores the signal.
+export class TimeoutError extends Error {
+  constructor(role, seconds) {
+    super(`role "${role}" timed out after ${seconds}s`);
+    this.code = 'ETIMEDOUT';
+    this.role = role;
+  }
+}
+
+export function makeTransport({ dryRun, responsesDir, apiKey, timeoutMs = 300_000, fetchImpl = fetch }) {
   const calls = { a: 0, b: 0, adjudicator: 0 };
 
   async function complete(role, bodyString) {
@@ -311,20 +334,33 @@ export function makeTransport({ dryRun, responsesDir, apiKey }) {
       }
       return JSON.parse(text);
     }
-    const res = await fetch(`${OPENROUTER}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'X-Title': 'blind-review',
-      },
-      body: bodyString,
-    });
-    if (!res.ok) {
-      const detail = (await res.text().catch(() => '')).slice(0, 500);
-      throw new Error(`OpenRouter ${res.status} for role "${role}": ${detail}`);
+    const controller = new AbortController();
+    const seconds = Math.round(timeoutMs / 1000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await Promise.race([
+        fetchImpl(`${OPENROUTER}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'X-Title': 'blind-review',
+          },
+          body: bodyString,
+          signal: controller.signal,
+        }),
+        new Promise((_, reject) => {
+          controller.signal.addEventListener('abort', () => reject(new TimeoutError(role, seconds)));
+        }),
+      ]);
+      if (!res.ok) {
+        const detail = (await res.text().catch(() => '')).slice(0, 500);
+        throw new Error(`OpenRouter ${res.status} for role "${role}": ${detail}`);
+      }
+      return res.json();
+    } finally {
+      clearTimeout(timer);
     }
-    return res.json();
   }
 
   // Cost comes from OpenRouter's generation endpoint. It can lag the completion
@@ -404,6 +440,10 @@ export function renderMarkdown(report) {
   L.push('');
   L.push(`Total: ${report.cost.total === null ? `cost unknown (${report.cost.unpricedCalls} of ${report.calls.a + report.calls.b + report.calls.adjudicator} calls unpriced${report.cost.knownPortion !== null ? `; known portion ${formatCost(report.cost.knownPortion)}` : ''})` : formatCost(report.cost.total)}`);
   L.push('');
+  if (report.timedOut && report.timedOut.length) {
+    L.push(`**Timed out:** ${report.timedOut.join(', ')} (no response within the timeout; cost for these roles is unknown, not $0)`);
+    L.push('');
+  }
 
   const section = (title, status) => {
     const items = report.findings.filter((f) => f.status === status);
@@ -463,6 +503,12 @@ export function parseArgs(argv) {
       case '--dry-run':
         out.dryRun = true;
         break;
+      case '--quiet':
+        out.quiet = true;
+        break;
+      case '--timeout':
+        out.timeout = Number(next());
+        break;
       case '-h':
       case '--help':
         out.help = true;
@@ -474,20 +520,56 @@ export function parseArgs(argv) {
   return out;
 }
 
-const USAGE = `usage: blind-review.mjs --diff <file> --brief <file> --config <models.json> --out <dir> [--dry-run --responses <dir>]
+const USAGE = `usage: blind-review.mjs --diff <file> --brief <file> --config <models.json> --out <dir> [--dry-run --responses <dir>] [--timeout <seconds>] [--quiet]
 
   --diff       unified diff to review (e.g. from \`gh pr diff N\`)
   --brief      what the change was meant to do
-  --config     {"a":{model,family},"b":{...},"adjudicator":{...}}; three families
+  --config     {"a":{model,family},"b":{...},"adjudicator":{...}}; three families.
+               Refused if it resolves to models.example.json or still carries
+               the "_comment" marker; copy it to models.json first.
   --out        directory for report.json, report.md and the request/response bodies
   --dry-run    use recorded responses from --responses <dir> instead of the network
   --responses  directory holding a.json, b.json, optionally adjudicator.json and generation-<role>.json
+  --timeout    per-call timeout in seconds (default 300). A call that exceeds it is
+               aborted and the role is recorded as timed out; the run exits 2.
+  --quiet      suppress the heartbeat lines (one on stderr when each call starts
+               and finishes, with role, model, elapsed seconds and token counts)
 
   OPENROUTER_API_KEY is read from the environment. It is never written anywhere.
   exit 0: no findings · 1: at least one agreed or upheld finding · 2: could not run
 `;
 
 class RunError extends Error {}
+
+// Refuses to run against the example config: by path (models.example.json)
+// or by the "_comment" marker it carries, in case someone copied it without
+// removing that field. Run 2 silently used the example because models.json
+// didn't exist; this makes that a loud exit 2 instead.
+export function isExampleConfig(configPath, config) {
+  return /models\.example\.json$/.test(configPath) || Boolean(config && typeof config === 'object' && Object.prototype.hasOwnProperty.call(config, '_comment'));
+}
+
+// One line on stderr when a call starts and one when it ends, with role,
+// model, elapsed seconds and token counts when the response carries them.
+// Silenced by --quiet. Run 2's 35 minutes with an empty log is the failure
+// this exists to prevent.
+function heartbeat(io, quiet, role, model) {
+  const start = Date.now();
+  if (!quiet) io.stderr.write(`[blind-review] ${role} (${model}): starting\n`);
+  const elapsed = () => ((Date.now() - start) / 1000).toFixed(1);
+  return {
+    done(response) {
+      if (quiet) return;
+      const tok = tokensOf(response);
+      const tokStr = tok.prompt != null || tok.completion != null ? `, tokens ${tok.prompt ?? '?'} in / ${tok.completion ?? '?'} out` : '';
+      io.stderr.write(`[blind-review] ${role} (${model}): done in ${elapsed()}s${tokStr}\n`);
+    },
+    failed(err) {
+      if (quiet) return;
+      io.stderr.write(`[blind-review] ${role} (${model}): failed after ${elapsed()}s: ${err.message}\n`);
+    },
+  };
+}
 
 export async function run(argv, env, io = { stdout: process.stdout, stderr: process.stderr }) {
   const say = (s) => io.stdout.write(s + '\n');
@@ -521,6 +603,9 @@ export async function run(argv, env, io = { stdout: process.stdout, stderr: proc
   } catch (e) {
     fail(`could not read config ${args.config}: ${e.message}`);
   }
+  if (isExampleConfig(args.config, config)) {
+    fail(`refusing to run against the example config (${args.config}). Copy it to models.json, pick three different model families, and point --config at that file.`);
+  }
   const configError = validateConfig(config);
   if (configError) fail(configError);
 
@@ -541,22 +626,41 @@ export async function run(argv, env, io = { stdout: process.stdout, stderr: proc
   await mkdir(args.out, { recursive: true });
   const write = (name, content) => writeFile(path.join(args.out, name), content);
 
-  const transport = makeTransport({ dryRun: args.dryRun, responsesDir: args.responses, apiKey });
+  const timeoutSeconds = args.timeout ?? 300;
+  const transport = makeTransport({ dryRun: args.dryRun, responsesDir: args.responses, apiKey, timeoutMs: timeoutSeconds * 1000 });
+
+  // A role call wrapped with a heartbeat (start/end on stderr) that reports
+  // success or failure rather than throwing, so a timeout on one role doesn't
+  // hide whether the other one is still fine.
+  async function callRole(role, model, body) {
+    const hb = heartbeat(io, args.quiet, role, model);
+    try {
+      const response = await transport.complete(role, body);
+      hb.done(response);
+      return { role, response };
+    } catch (e) {
+      hb.failed(e);
+      return { role, error: e };
+    }
+  }
 
   // Both reviewer bodies are built by the same function from the same inputs
   // before either call starts. Nothing from A can reach B: B's body exists
   // before A has answered.
-  const bodyA = buildReviewerRequest(config.a.model, brief, diff);
-  const bodyB = buildReviewerRequest(config.b.model, brief, diff);
+  const bodyA = buildReviewerRequest(config.a.model, brief, diff, resolveReasoning(config.a, 'low'));
+  const bodyB = buildReviewerRequest(config.b.model, brief, diff, resolveReasoning(config.b, 'low'));
   await Promise.all([write('request-a.json', bodyA), write('request-b.json', bodyB)]);
 
-  let responseA;
-  let responseB;
-  try {
-    [responseA, responseB] = await Promise.all([transport.complete('a', bodyA), transport.complete('b', bodyB)]);
-  } catch (e) {
-    fail(`reviewer call failed: ${e.message}`);
+  const [resA, resB] = await Promise.all([callRole('a', config.a.model, bodyA), callRole('b', config.b.model, bodyB)]);
+  const roleFailures = [resA, resB].filter((r) => r.error);
+  if (roleFailures.length) {
+    await Promise.all([resA, resB].filter((r) => r.response).map((r) => write(`response-${r.role}.json`, JSON.stringify(r.response, null, 2))));
+    const timedOut = roleFailures.filter((r) => r.error.code === 'ETIMEDOUT').map((r) => r.role);
+    await write('report.json', JSON.stringify({ version: 1, generatedAt: new Date().toISOString(), dryRun: args.dryRun, timedOut, exitCode: 2 }, null, 2) + '\n');
+    fail(`reviewer call failed:\n${roleFailures.map((r) => `${r.role}: ${r.error.message}`).join('\n')}`);
   }
+  const responseA = resA.response;
+  const responseB = resB.response;
   await Promise.all([
     write('response-a.json', JSON.stringify(responseA, null, 2)),
     write('response-b.json', JSON.stringify(responseB, null, 2)),
@@ -574,13 +678,15 @@ export async function run(argv, env, io = { stdout: process.stdout, stderr: proc
   let verdicts = new Map();
   let responseAdj = null;
   if (disputed.length > 0) {
-    const bodyAdj = buildAdjudicatorRequest(config.adjudicator.model, brief, diff, disputed);
+    const bodyAdj = buildAdjudicatorRequest(config.adjudicator.model, brief, diff, disputed, resolveReasoning(config.adjudicator, 'medium'));
     await write('request-adjudicator.json', bodyAdj);
-    try {
-      responseAdj = await transport.complete('adjudicator', bodyAdj);
-    } catch (e) {
-      fail(`adjudicator call failed: ${e.message}`);
+    const adjResult = await callRole('adjudicator', config.adjudicator.model, bodyAdj);
+    if (adjResult.error) {
+      const timedOut = adjResult.error.code === 'ETIMEDOUT';
+      await write('report.json', JSON.stringify({ version: 1, generatedAt: new Date().toISOString(), dryRun: args.dryRun, timedOut: timedOut ? ['adjudicator'] : [], exitCode: 2 }, null, 2) + '\n');
+      fail(`adjudicator call failed: ${adjResult.error.message}`);
     }
+    responseAdj = adjResult.response;
     await write('response-adjudicator.json', JSON.stringify(responseAdj, null, 2));
     const parsed = parseVerdicts(messageContent(responseAdj));
     if (!parsed) fail('adjudicator returned nothing parseable as verdicts; see response-adjudicator.json');
@@ -691,6 +797,7 @@ export async function run(argv, env, io = { stdout: process.stdout, stderr: proc
     cost,
     counts,
     unresolved,
+    timedOut: [],
     findings,
     exitCode,
   };

@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync, execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,9 +16,12 @@ import {
   matchFindings,
   validateConfig,
   buildReviewerRequest,
+  buildAdjudicatorRequest,
   extractJson,
   jaccard,
   normaliseClaim,
+  makeTransport,
+  isExampleConfig,
   REVIEWER_SYSTEM_PROMPT,
 } from './blind-review.mjs';
 
@@ -307,6 +310,115 @@ test('cost: partial pricing reports the known portion and a null total', () => {
   assert.equal(rep.cost.unpricedCalls, 1);
   assert.ok(Math.abs(rep.cost.knownPortion - 0.0038) < 1e-9);
   assert.match(r.stdout, /1 of 3 calls unpriced/);
+});
+
+// ---------------------------------------------------------------------------
+// TIMEOUT
+// ---------------------------------------------------------------------------
+
+test('timeout: a hanging fetch is aborted and the role is recorded as timed_out', async () => {
+  const neverResolves = () => new Promise(() => {});
+  const transport = makeTransport({ dryRun: false, apiKey: 'fixture-key-not-a-real-credential', timeoutMs: 50, fetchImpl: neverResolves });
+  await assert.rejects(transport.complete('a', '{}'), (err) => {
+    assert.equal(err.code, 'ETIMEDOUT');
+    assert.match(err.message, /role "a" timed out after/);
+    return true;
+  });
+});
+
+test('timeout: a slow-but-successful fetch under the limit is not aborted', async () => {
+  const slowOk = () => new Promise((resolve) => setTimeout(() => resolve({ ok: true, json: async () => ({ choices: [{ message: { content: '{"findings":[]}' } }] }) }), 10));
+  const transport = makeTransport({ dryRun: false, apiKey: 'fixture-key-not-a-real-credential', timeoutMs: 1000, fetchImpl: slowOk });
+  const res = await transport.complete('a', '{}');
+  assert.deepEqual(JSON.parse(res.choices[0].message.content), { findings: [] });
+});
+
+test('--timeout is accepted and does not interfere with a normal dry run', () => {
+  // Dry run never touches the network, so this only proves the flag parses
+  // and is threaded through; the abort behaviour itself is proven above at
+  // the makeTransport level with a fetch double that never resolves.
+  const r = dryRun('agreed', ['--timeout', '5']);
+  assert.equal(r.status, 1, r.stderr);
+});
+
+// ---------------------------------------------------------------------------
+// EXAMPLE CONFIG REFUSAL
+// ---------------------------------------------------------------------------
+
+test('refuses to run against the example config by path', () => {
+  const exampleConfig = path.join(PLUGIN, 'config', 'models.example.json');
+  const r = runScript(['--diff', DIFF, '--brief', BRIEF, '--config', exampleConfig, '--dry-run', '--responses', RESPONSES('agreed')]);
+  assert.equal(r.status, 2, r.stderr);
+  assert.match(r.stderr, /refusing to run against the example config/);
+  assert.equal(existsSync(path.join(r.out, 'request-a.json')), false, 'no request was built');
+});
+
+test('refuses to run when a config still carries the _comment marker, even renamed to models.json', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'blind-review-example-'));
+  const cfg = { _comment: 'copy me first', ...JSON.parse(readFileSync(CONFIG, 'utf8')) };
+  const renamed = path.join(dir, 'models.json');
+  writeFileSync(renamed, JSON.stringify(cfg));
+  const r = runScript(['--diff', DIFF, '--brief', BRIEF, '--config', renamed, '--dry-run', '--responses', RESPONSES('agreed')]);
+  assert.equal(r.status, 2, r.stderr);
+  assert.match(r.stderr, /refusing to run against the example config/);
+});
+
+test('isExampleConfig: neither signal alone is required, either is enough', () => {
+  assert.equal(isExampleConfig('/x/models.example.json', { a: {} }), true);
+  assert.equal(isExampleConfig('/x/models.json', { _comment: 'x' }), true);
+  assert.equal(isExampleConfig('/x/models.json', { a: {} }), false);
+});
+
+// ---------------------------------------------------------------------------
+// HEARTBEAT
+// ---------------------------------------------------------------------------
+
+test('heartbeat: one stderr line per request start and end, with role, model, elapsed seconds and tokens', () => {
+  const r = dryRun('agreed');
+  assert.match(r.stderr, /\[blind-review\] a \(fixture\/reviewer-alpha\): starting/);
+  assert.match(r.stderr, /\[blind-review\] a \(fixture\/reviewer-alpha\): done in [\d.]+s, tokens 812 in \/ 71 out/);
+  assert.match(r.stderr, /\[blind-review\] b \(fixture\/reviewer-beta\): starting/);
+  assert.match(r.stderr, /\[blind-review\] b \(fixture\/reviewer-beta\): done in [\d.]+s, tokens \d+ in \/ \d+ out/);
+});
+
+test('heartbeat: --quiet suppresses every heartbeat line', () => {
+  const r = dryRun('agreed', ['--quiet']);
+  assert.doesNotMatch(r.stderr, /\[blind-review\]/);
+});
+
+test('heartbeat: a failed call is still reported once, not left silent', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'blind-review-mixed-'));
+  execFileSync('cp', [path.join(RESPONSES('disputed'), 'a.json'), path.join(dir, 'a.json')]);
+  execFileSync('cp', [path.join(RESPONSES('agreed'), 'b.json'), path.join(dir, 'b.json')]);
+  const r = runScript(['--diff', DIFF, '--brief', BRIEF, '--config', CONFIG, '--dry-run', '--responses', dir]);
+  assert.match(r.stderr, /\[blind-review\] adjudicator \(fixture\/adjudicator-gamma\): starting/);
+  assert.match(r.stderr, /\[blind-review\] adjudicator \(fixture\/adjudicator-gamma\): failed after [\d.]+s:/);
+});
+
+// ---------------------------------------------------------------------------
+// REASONING CAP
+// ---------------------------------------------------------------------------
+
+test('reasoning: reviewers default to low effort, the adjudicator to medium', () => {
+  const bodyA = JSON.parse(buildReviewerRequest('m', 'b', 'd'));
+  assert.deepEqual(bodyA.reasoning, { effort: 'low' });
+  const bodyAdj = JSON.parse(buildAdjudicatorRequest('m', 'b', 'd', []));
+  assert.deepEqual(bodyAdj.reasoning, { effort: 'medium' });
+});
+
+test('reasoning: an explicit config override is sent instead of the default', () => {
+  const body = JSON.parse(buildReviewerRequest('m', 'b', 'd', { effort: 'high' }));
+  assert.deepEqual(body.reasoning, { effort: 'high' });
+});
+
+test('reasoning: a full run sends the resolved reasoning effort in every request body', () => {
+  const r = dryRun('disputed');
+  const reqA = JSON.parse(readFileSync(path.join(r.out, 'request-a.json'), 'utf8'));
+  const reqB = JSON.parse(readFileSync(path.join(r.out, 'request-b.json'), 'utf8'));
+  const reqAdj = JSON.parse(readFileSync(path.join(r.out, 'request-adjudicator.json'), 'utf8'));
+  assert.deepEqual(reqA.reasoning, { effort: 'low' });
+  assert.deepEqual(reqB.reasoning, { effort: 'low' });
+  assert.deepEqual(reqAdj.reasoning, { effort: 'medium' });
 });
 
 // ---------------------------------------------------------------------------

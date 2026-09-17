@@ -1,6 +1,6 @@
 ---
 description: "Blind two-reviewer review of a PR with a third-family adjudicator on disagreement. Runs plugins/blind-review/scripts/blind-review.mjs on a PR's diff and brief, prints the report, and stops. Comments on the PR only when the user asks for that explicitly. Never merges, approves, or requests changes."
-argument-hint: "<pr-number> [--brief <file>] [--config <models.json>] [--comment]"
+argument-hint: "<pr-number> [--brief <file>] [--config <models.json>] [--timeout <seconds>] [--quiet] [--comment]"
 disable-model-invocation: true
 allowed-tools: Bash(node:*), Bash(gh pr diff:*), Bash(gh pr view:*), Bash(mkdir:*), Bash(cat:*), Read
 ---
@@ -26,6 +26,12 @@ findings. Print what came back.
 - `--config <file>`: model config. Default `${CLAUDE_PLUGIN_ROOT}/config/models.json`;
   if that does not exist, stop and tell the user to copy
   `${CLAUDE_PLUGIN_ROOT}/config/models.example.json` and pick three families.
+  The script itself refuses to run against the example file directly (by path
+  or by its `_comment` marker), so pointing it there is caught, not silently
+  honoured.
+- `--timeout <seconds>`: per-call timeout, default 300. Pass it through if the
+  user asks for a longer or shorter budget.
+- `--quiet`: suppress the heartbeat lines below.
 - `--comment`: only with this flag do you post the report to the PR.
 
 ## Steps
@@ -39,7 +45,11 @@ findings. Print what came back.
    gh pr diff <N> > /tmp/blind-review-<N>/pr.diff
    gh pr view <N> --json body -q .body > /tmp/blind-review-<N>/brief.md   # unless --brief was given
    ```
-3. Run the script:
+3. Run the script. Expect it to print a heartbeat line to stderr when each
+   reviewer and adjudicator call starts and when it finishes (role, model,
+   elapsed seconds, and token counts once the response carries them) — that is
+   normal, not an error; it is how you can tell the run is progressing instead
+   of hung. Pass `--quiet` only if the user asked for a quiet run.
    ```
    node "${CLAUDE_PLUGIN_ROOT}/scripts/blind-review.mjs" \
      --diff /tmp/blind-review-<N>/pr.diff \
@@ -49,7 +59,9 @@ findings. Print what came back.
    ```
 4. Print `report.md` verbatim, then the exit code and the cost line the script
    printed. `0` means no agreed or upheld findings. `1` means at least one.
-   `2` means it could not run; report the message and stop. `2` is never a pass.
+   `2` means it could not run — including a call that hit `--timeout` (default
+   300s) and was recorded as timed out; report the message and stop. `2` is
+   never a pass.
 5. Stop. Do not merge, approve, request changes, or edit anything in the repo.
 
 ## Only when asked
