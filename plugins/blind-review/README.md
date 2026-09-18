@@ -46,6 +46,21 @@ A finding is kept only if its `evidence` is one of:
 
 Anything else is dropped and counted under `dropped-no-evidence`.
 
+## Flags added for v2
+
+- `--timeout <seconds>` (default 300): aborts a reviewer or adjudicator call
+  that runs past it and records that role as timed out, exit 2, instead of
+  hanging with no output.
+- `--quiet`: suppresses the heartbeat — one stderr line when each call starts
+  and one when it finishes, with role, model, elapsed seconds and token
+  counts. On by default so a run in progress is never silent.
+- `--config` now refuses to run against `models.example.json` itself (by path
+  or by its `_comment` marker), exit 2, rather than silently reviewing with
+  placeholder models.
+- Each role in the config may set a `reasoning` field (OpenRouter's
+  `reasoning` object); reviewers default to `{"effort":"low"}` and the
+  adjudicator to `{"effort":"medium"}`.
+
 ## Fixtures
 
 `fixtures/` describes MintCache, a made-up LRU cache. The diff adds a `ttl`

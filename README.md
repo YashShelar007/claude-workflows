@@ -44,14 +44,26 @@ cp plugins/blind-review/config/models.example.json plugins/blind-review/config/m
 ```json
 {
   "a":           { "model": "deepseek/deepseek-v4-pro", "family": "deepseek" },
-  "b":           { "model": "z-ai/glm-5.3",              "family": "glm" },
+  "b":           { "model": "openai/gpt-5.4",            "family": "openai" },
   "adjudicator": { "model": "google/gemini-3.8-flash",   "family": "gemini" }
 }
 ```
 
-The script refuses to run if any two roles share a `family`. Model ids are
-OpenRouter ids; they go stale, so the example file carries the date each was
-chosen and why. Check `https://openrouter.ai/api/v1/models` before trusting it.
+The script refuses to run if any two roles share a `family`. It also refuses
+to run against the example file itself: if `--config` resolves to
+`models.example.json`, or the file still carries the `_comment` key (in case
+it was copied without cleaning that up), it exits 2 and tells you to copy it
+first. Model ids are OpenRouter ids; they go stale, so the example file
+carries the date each was chosen and why. Check
+`https://openrouter.ai/api/v1/models` before trusting it.
+
+Each role can also set its own `reasoning` field, passed straight through as
+OpenRouter's `reasoning` object (`{"effort":"low"|"medium"|"high"|...}` or
+`{"max_tokens":N}`; see
+[OpenRouter's reasoning tokens docs](https://openrouter.ai/docs/use-cases/reasoning-tokens)).
+Without one, reviewers (`a`, `b`) default to `{"effort":"low"}` and the
+`adjudicator` to `{"effort":"medium"}` — the first live run had a reviewer
+spend ~155k reasoning tokens on a 3-file diff, and this caps that by default.
 
 ## First real run
 
@@ -68,9 +80,18 @@ cat /tmp/blind-review-42/report.md
 
 Or, inside Claude Code: `/blind-review:blind-review 42`.
 
+Add `--timeout <seconds>` (default 300) to bound each reviewer and adjudicator
+call; a call that runs past it is aborted and that role is recorded as timed
+out, rather than the run hanging with no output (the second live run sat for
+35 minutes with an empty log before it was killed). While a run is in
+progress it prints one line to stderr when each call starts and one when it
+finishes, with the role, model, elapsed seconds and token counts; pass
+`--quiet` to suppress those.
+
 Exit codes: `0` no findings, `1` at least one agreed or upheld finding, `2`
-could not run (missing key, same-family config, unparseable reviewer output,
-adjudicator did not rule). `2` is never a pass.
+could not run (missing key, example config, same-family config, a timed-out
+call, unparseable reviewer output, adjudicator did not rule). `2` is never a
+pass.
 
 ## What comes out
 

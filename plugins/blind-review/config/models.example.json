@@ -1,14 +1,14 @@
 {
-  "_comment": "Copy to models.json. Three roles, three different families; the script refuses two from one family. Ids are OpenRouter ids, checked against https://openrouter.ai/api/v1/models on the date given. They go stale; re-check before trusting.",
+  "_comment": "Copy to models.json. Three roles, three different families; the script refuses two from one family. Ids are OpenRouter ids, checked against https://openrouter.ai/api/v1/models on the date given. They go stale; re-check before trusting. Reasoning effort defaults to low for a/b and medium for the adjudicator; override per role with a \"reasoning\" field, e.g. {\"effort\":\"medium\"} (see https://openrouter.ai/docs/use-cases/reasoning-tokens).",
   "a": {
     "model": "deepseek/deepseek-v4-pro",
     "family": "deepseek",
     "why": "2026-09-15: strong on code, $1.60/$3.20 per M tokens on OpenRouter, 1M context so a whole PR diff fits."
   },
   "b": {
-    "model": "z-ai/glm-5.3",
-    "family": "glm",
-    "why": "2026-09-15: a different lab and training lineage from DeepSeek, $1.40/$4.40 per M tokens, 1.3M context."
+    "model": "openai/gpt-5.4",
+    "family": "openai",
+    "why": "2026-09-16: a GPT-5-class reviewer for the third family the pipeline needs by default (was z-ai/glm-5.3, which spent ~155k reasoning tokens reviewing a 3-file diff in the first live run; the reasoning cap below is the other half of that fix). $2.50/$15 per M tokens, 1.05M context, verified against https://openrouter.ai/api/v1/models on 2026-09-16."
   },
   "adjudicator": {
     "model": "google/gemini-3.8-flash",
