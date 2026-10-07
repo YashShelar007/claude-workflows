@@ -51,9 +51,9 @@ Anything else is dropped and counted under `dropped-no-evidence`.
 - `--timeout <seconds>` (default 300): aborts a reviewer or adjudicator call
   that runs past it and records that role as timed out, exit 2, instead of
   hanging with no output.
-- `--quiet`: suppresses the heartbeat — one stderr line when each call starts
+- `--quiet`: suppresses the heartbeat (one stderr line when each call starts
   and one when it finishes, with role, model, elapsed seconds and token
-  counts. On by default so a run in progress is never silent.
+  counts). On by default so a run in progress is never silent.
 - `--config` now refuses to run against `models.example.json` itself (by path
   or by its `_comment` marker), exit 2, rather than silently reviewing with
   placeholder models.
