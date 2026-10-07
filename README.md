@@ -8,7 +8,7 @@ they agree, the finding is recorded. Where they disagree, a third model family
 adjudicates. Findings without evidence are dropped before anyone reads them.
 
 **`site-preflight`**: the mechanical half of a twenty-item launch checklist,
-asked of a live site and answered with the number it was judged on — the status
+asked of a live site and answered with the number it was judged on: the status
 code, the byte count, the contrast ratio. The six items no script can settle are
 put to a human, one at a time. A value it cannot read is `could-not-check`,
 which is not a pass.
@@ -62,7 +62,7 @@ OpenRouter's `reasoning` object (`{"effort":"low"|"medium"|"high"|...}` or
 `{"max_tokens":N}`; see
 [OpenRouter's reasoning tokens docs](https://openrouter.ai/docs/use-cases/reasoning-tokens)).
 Without one, reviewers (`a`, `b`) default to `{"effort":"low"}` and the
-`adjudicator` to `{"effort":"medium"}` — the first live run had a reviewer
+`adjudicator` to `{"effort":"medium"}`. The first live run had a reviewer
 spend ~155k reasoning tokens on a 3-file diff, and this caps that by default.
 
 ## First real run

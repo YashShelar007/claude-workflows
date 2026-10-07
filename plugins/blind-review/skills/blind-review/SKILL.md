@@ -47,7 +47,7 @@ findings. Print what came back.
    ```
 3. Run the script. Expect it to print a heartbeat line to stderr when each
    reviewer and adjudicator call starts and when it finishes (role, model,
-   elapsed seconds, and token counts once the response carries them) — that is
+   elapsed seconds, and token counts once the response carries them). That is
    normal, not an error; it is how you can tell the run is progressing instead
    of hung. Pass `--quiet` only if the user asked for a quiet run.
    ```
@@ -59,7 +59,7 @@ findings. Print what came back.
    ```
 4. Print `report.md` verbatim, then the exit code and the cost line the script
    printed. `0` means no agreed or upheld findings. `1` means at least one.
-   `2` means it could not run — including a call that hit `--timeout` (default
+   `2` means it could not run, including a call that hit `--timeout` (default
    300s) and was recorded as timed out; report the message and stop. `2` is
    never a pass.
 5. Stop. Do not merge, approve, request changes, or edit anything in the repo.

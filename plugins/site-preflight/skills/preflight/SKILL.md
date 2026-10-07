@@ -46,15 +46,15 @@ guess, and a guess from you is worth less than the script's refusal.
    6. Is analytics set up, and which? "None, on purpose" is a valid answer.
 
    For each, record `pass` with what the user said as the evidence, `fail` with
-   the reason, or `n/a` with the reason — "there are no forms on this site" is a
+   the reason, or `n/a` with the reason. "There are no forms on this site" is a
    perfectly good `n/a` for the two form questions. A question the user skips
    stays unanswered; it does not become a pass.
 4. Append the six rows to `report.md` under a heading `## Answered by the
    operator`, each row carrying the date, the question, the verdict, and the
    answer in the user's own words. Do not rewrite the mechanical half of the
    file: append to it.
-5. Print the combined count — how many of the twenty-one rows passed, failed,
-   were not applicable, and were left unchecked — and stop.
+5. Print the combined count (how many of the twenty-one rows passed, failed,
+   were not applicable, and were left unchecked) and stop.
 
 ## Rules
 

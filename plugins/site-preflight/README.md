@@ -39,13 +39,13 @@ runs the script and then asks the six human items.
 
 | Flag | Default | What it does |
 |---|---|---|
-| `--url <origin>` | — | the site to check |
-| `--out <dir>` | — | where `report.json` and `report.md` go |
+| `--url <origin>` | none | the site to check |
+| `--out <dir>` | none | where `report.json` and `report.md` go |
 | `--max-pages <n>` | 20 | how many HTML pages the crawl will visit |
 | `--ttfb-ms <n>` | 800 | time-to-first-byte threshold |
 | `--max-bytes <n>` | 2097152 | landing-page weight threshold |
 | `--max-image-bytes <n>` | 307200 | per-image weight threshold |
-| `--fixture <dir>` | — | serve a local directory and check that instead |
+| `--fixture <dir>` | none | serve a local directory and check that instead |
 
 Exit `0` when every mechanical item passed or did not apply, `1` when any item
 failed **or could not be checked**, `2` when the origin could not be reached or
@@ -53,8 +53,8 @@ a check threw. `2` is never a pass, and neither is `1`: an item the script could
 not read is an item nobody has checked.
 
 Expect that to bite. A site built with Tailwind, or with any design-token
-system, will hand back `could-not-check` for colour contrast — every colour
-arrives through a variable — and exit `1` on that alone with nothing else wrong.
+system, will hand back `could-not-check` for colour contrast (every colour
+arrives through a variable) and exit `1` on that alone with nothing else wrong.
 That is the honest result, not a bug to route around. The alternative is a
 script that resolves `var(--ink)` to a guess and prints a contrast ratio it
 invented, and a ratio nobody measured is worse than no ratio at all. Read the
@@ -71,12 +71,12 @@ finished" rather than "broken".
 | Social preview image | `og:title`, `og:description`, `og:image` and `twitter:card` are present, and the image fetches as an image of at least 1200×630 when its dimensions can be read from the bytes. |
 | Favicon | The declared `<link rel="icon">` returns 200, or `/favicon.ico` does. |
 | Mobile friendly | Every crawled page carries a `<meta name="viewport">`. |
-| Custom 404 page | A path that does not exist returns 404 — not 200 — and the body carries the site title or a link back into the site rather than the server's own default. |
+| Custom 404 page | A path that does not exist returns 404, not 200, and the body carries the site title or a link back into the site rather than the server's own default. |
 | No broken links | Every same-origin `<a href>` found in the crawl returns under 400. Failures name the page that linked them. |
 | Alt text on images | Every `<img>` has an `alt` attribute. `alt=""` passes: that is the correct marking for a decorative image, and `role="presentation"` adds nothing to it. The count of decorative images is reported for a human to weigh. |
 | Image compression | No image exceeds the per-image byte threshold. The byte count is printed for every image either way. |
 | Page load speed | Time to first byte and landing-page bytes are both under their thresholds. Both numbers are printed either way. |
-| Secrets off the frontend | No credential-shaped string in any same-origin script or inline script. Findings name the file, the line, and the first four characters — never the value. |
+| Secrets off the frontend | No credential-shaped string in any same-origin script or inline script. Findings name the file, the line, and the first four characters, never the value. |
 | Colour contrast | Every text/background pair written as literal colours reaches 4.5:1. Pairs that resolve only through variables or inheritance are `could-not-check`. |
 | No mixed content | No `http://` asset referenced from an https page. On an http origin the verdict is `n/a` and the references are still listed. |
 | Security headers | Report only. `Content-Security-Policy` and `X-Content-Type-Options` are printed whether present or absent; the checklist does not require either, so this row always passes. |
@@ -129,7 +129,7 @@ that answers 200 for everything, a dead internal link, an image with no `alt`
 attribute at all, an image over the weight threshold, a 2.49:1 contrast pair, an
 `http://` stylesheet and a placeholder key in the served JavaScript.
 
-Two images are generated rather than committed — one has to be 1200×630 and the
+Two images are generated rather than committed. One has to be 1200×630 and the
 other has to weigh more than the threshold it exists to breach, and a third of a
 megabyte of incompressible noise does not belong in a git history:
 
@@ -142,8 +142,8 @@ The test suite generates them itself, so `npm test` needs no setup.
 
 ## Notes for anyone changing this
 
-- Collection and verdict are separate functions. Two checks — the https redirect
-  and mixed content — cannot fail against a fixture served over plain http, so
+- Collection and verdict are separate functions. Two checks (the https redirect
+  and mixed content) cannot fail against a fixture served over plain http, so
   their failing cases are proven on the verdict function directly. Keep that
   split if you add a check that needs TLS, a real browser, or a third party.
 - `could-not-check` is load-bearing. It exits 1, not 0. If a change makes an
